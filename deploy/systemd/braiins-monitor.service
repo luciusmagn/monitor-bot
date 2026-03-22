@@ -1,0 +1,12 @@
+[Unit]
+Description=Braiins bot and service monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=/etc/braiins-monitor/env
+ExecStart=/usr/bin/python3 /opt/braiins-monitor/monitor.py
+WorkingDirectory=/tmp
+Nice=10

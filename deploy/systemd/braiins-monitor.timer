@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Braiins monitor every 2 minutes
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=2min
+AccuracySec=15s
+Persistent=true
+Unit=braiins-monitor.service
+
+[Install]
+WantedBy=timers.target
