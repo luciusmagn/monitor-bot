@@ -45,6 +45,18 @@
       "label": "shared drive sync",
       "kind": "oneshot",
       "stale_after_minutes": 15
+    },
+    {
+      "unit": "openclaw-claude-bridge.service",
+      "label": "shared claude bridge",
+      "kind": "daemon",
+      "user": "claudebridge",
+      "port": 3456,
+      "health_url": "http://127.0.0.1:3456/health",
+      "health_expect": {
+        "status": "ok",
+        "service": "openclaw-claude-bridge"
+      }
     }
   ],
   "bots": [

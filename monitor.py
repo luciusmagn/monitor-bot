@@ -382,6 +382,12 @@ def user_systemctl_show(user: str, uid: int, unit: str) -> dict[str, str]:
     return parse_key_values(out)
 
 
+def fetch_json(url: str, timeout: int = 10) -> Any:
+    req = request.Request(url, headers={"User-Agent": "braiins-monitor/1.0"})
+    with request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
 def parse_key_values(text: str) -> dict[str, str]:
     data: dict[str, str] = {}
     for line in text.splitlines():
@@ -898,7 +904,12 @@ def check_resources(config: dict[str, Any]) -> list[Issue]:
 def check_system_services(config: dict[str, Any], ports: set[int]) -> list[Issue]:
     issues: list[Issue] = []
     for svc in config.get("system_services", []):
-        show = systemctl_show(svc["unit"])
+        if svc.get("user"):
+            user = str(svc["user"])
+            uid = int(run(["id", "-u", user]).strip())
+            show = user_systemctl_show(user, uid, svc["unit"])
+        else:
+            show = systemctl_show(svc["unit"])
         active = show.get("ActiveState", "unknown")
         sub = show.get("SubState", "unknown")
         if svc.get("kind", "daemon") == "timer":
@@ -949,6 +960,22 @@ def check_system_services(config: dict[str, Any], ports: set[int]) -> list[Issue
                 summary=f"{svc['label']} is not listening on {port}",
                 detail=f"expected port {port} missing from ss",
             ))
+        health_url = str(svc.get("health_url", "")).strip()
+        if health_url:
+            try:
+                payload = fetch_json(health_url)
+                expected = svc.get("health_expect", {})
+                for key, value in expected.items():
+                    if payload.get(key) != value:
+                        raise RuntimeError(f"expected {key}={value!r}, got {payload.get(key)!r}")
+            except Exception as exc:
+                issues.append(Issue(
+                    issue_id=f"system:{svc['unit']}:health",
+                    severity="critical",
+                    component=svc["label"],
+                    summary=f"{svc['label']} health check failed",
+                    detail=str(exc),
+                ))
     return issues
 
 
