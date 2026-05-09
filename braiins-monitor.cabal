@@ -1,0 +1,26 @@
+cabal-version:      2.4
+name:               braiins-monitor
+version:            2.0.0.0
+build-type:         Simple
+
+executable braiins-monitor
+  main-is:          Main.hs
+  hs-source-dirs:   app, src
+  other-modules:    BraiinsMonitor
+  default-language: GHC2021
+  ghc-options:      -O2 -threaded -rtsopts -with-rtsopts=-N -Wall
+  build-depends:
+      base >=4.18 && <4.19,
+      aeson,
+      bytestring,
+      containers,
+      directory,
+      filepath,
+      http-client,
+      http-client-tls,
+      http-types,
+      process,
+      text,
+      time,
+      unordered-containers,
+      vector

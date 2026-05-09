@@ -146,5 +146,7 @@
       "Claude Code",
       "Claude for Government"
     ]
-  }
+  },
+  "failure_confirmations": 2,
+  "planned_restart_window_seconds": 900
 }
