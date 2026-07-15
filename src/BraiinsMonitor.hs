@@ -12,7 +12,6 @@ import Data.Aeson
 import Data.Aeson.Types (Parser)
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
-import Data.ByteString.Char8 qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Char (isAlphaNum, isDigit)
 import Data.Foldable (toList)
@@ -365,7 +364,7 @@ instance FromJSON OpenIncident where
     oiDetail <- o .: "detail"
     oiFirstSeen <- o .: "first_seen" >>= parseIsoField
     oiLastSeen <- o .: "last_seen" >>= parseIsoField
-    oiResolvedAt <- (o .:? "resolved_at") >>= traverse parseIsoField
+    oiResolvedAt <- parseMaybeIsoField o "resolved_at"
     pure OpenIncident {..}
 
 instance ToJSON OpenIncident where
@@ -411,7 +410,7 @@ instance FromJSON SummaryRow where
     srComponent <- o .: "component"
     srSummary <- o .: "summary"
     srFirstSeen <- o .: "first_seen" >>= parseIsoField
-    srResolvedAt <- (o .:? "resolved_at") >>= traverse parseIsoField
+    srResolvedAt <- parseMaybeIsoField o "resolved_at"
     pure SummaryRow {..}
 
 data CountRow = CountRow { countValue :: Int }
@@ -698,12 +697,11 @@ checkMemory ResourceMemory {..} = do
 
 checkDisk :: ResourceDisk -> IO [Issue]
 checkDisk ResourceDisk {..} = do
-  (code, out, err) <- readProcessWithExitCode "df" ["-B1", "--output=size,used", diskPath] ""
+  (code, out, err) <- readProcessWithExitCode "df" ["-B1", "--output=size,used,avail,pcent", diskPath] ""
   case code of
     ExitFailure _ -> pure [Issue ("resource:disk:" <> T.pack diskPath <> ":read_error") Warning diskLabel (diskLabel <> " usage could not be checked") (T.pack err) CatResource Nothing]
     ExitSuccess -> case parseDfOutput out of
-      Just (total, used) -> do
-        let pct = if total <= 0 then 0 else (used / total) * 100
+      Just (_total, _used, _avail, pct) -> do
         pure
           [ Issue ("resource:disk:" <> T.pack diskPath <> ":high") Warning diskLabel (diskLabel <> " usage is high") (T.pack (printf "%.1f%% used" pct)) CatResource Nothing
           | pct >= diskThresholdPct
@@ -886,14 +884,16 @@ parseMemLine line =
       pure (filter (/= ':') rawKey, num)
     _ -> Nothing
 
-parseDfOutput :: String -> Maybe (Double, Double)
+parseDfOutput :: String -> Maybe (Double, Double, Double, Double)
 parseDfOutput out =
   case drop 1 (lines out) of
     row : _ -> case words row of
-      [sizeStr, usedStr] -> do
+      [sizeStr, usedStr, availStr, pctStr] -> do
         sizeVal <- readMaybe sizeStr
         usedVal <- readMaybe usedStr
-        pure (sizeVal, usedVal)
+        availVal <- readMaybe availStr
+        pctVal <- readMaybe (filter (/= '%') pctStr)
+        pure (sizeVal, usedVal, availVal, pctVal)
       _ -> Nothing
     [] -> Nothing
 
@@ -920,6 +920,14 @@ parseIsoField txt =
   case parseTimeM True defaultTimeLocale "%Y-%m-%dT%H:%M:%SZ" (T.unpack txt) of
     Just ts -> pure ts
     Nothing -> fail ("invalid timestamp: " <> T.unpack txt)
+
+parseMaybeIsoField :: KeyMap.KeyMap Value -> Text -> Parser (Maybe UTCTime)
+parseMaybeIsoField obj key =
+  case KeyMap.lookup (Key.fromText key) obj of
+    Nothing -> pure Nothing
+    Just Null -> pure Nothing
+    Just (String txt) -> Just <$> parseIsoField txt
+    Just _ -> fail ("invalid timestamp field " <> T.unpack key <> ": expected string or null")
 
 sqlQuote :: Text -> Text
 sqlQuote txt = "'" <> T.replace "'" "''" txt <> "'"
@@ -950,7 +958,7 @@ sqliteQuery sql = do
     ExitFailure _ -> error ("sqlite query failed: " <> err)
     ExitSuccess ->
       let payload = if null (trim out) then "[]" else out
-       in case eitherDecode (LBS.fromStrict (BS.pack payload)) of
+       in case eitherDecode (LBS.fromStrict (TE.encodeUtf8 (T.pack payload))) of
             Left decodeErr -> error ("sqlite decode failed: " <> decodeErr <> "\nSQL: " <> T.unpack sql <> "\nOUT: " <> out)
             Right value -> pure value
 

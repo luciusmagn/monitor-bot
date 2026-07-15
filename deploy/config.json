@@ -36,17 +36,6 @@
       "kind": "timer"
     },
     {
-      "unit": "openclaw-shared-drive-sync.timer",
-      "label": "shared drive sync timer",
-      "kind": "timer"
-    },
-    {
-      "unit": "openclaw-shared-drive-sync.service",
-      "label": "shared drive sync",
-      "kind": "oneshot",
-      "stale_after_minutes": 15
-    },
-    {
       "unit": "openclaw-claude-bridge.service",
       "label": "shared claude bridge",
       "kind": "daemon",
@@ -57,6 +46,17 @@
         "status": "ok",
         "service": "openclaw-claude-bridge"
       }
+    },
+    {
+      "unit": "hermes-slime.service",
+      "label": "Slime Hermes gateway",
+      "kind": "daemon"
+    },
+    {
+      "unit": "parenchat.service",
+      "label": "Parenchat",
+      "kind": "daemon",
+      "port": 12321
     }
   ],
   "bots": [
@@ -83,31 +83,6 @@
           "label": "gmail adapter"
         }
       ]
-    },
-    {
-      "user": "turtle",
-      "label": "Maturin",
-      "gateway_port": 18988
-    },
-    {
-      "user": "andre",
-      "label": "The Emperor",
-      "gateway_port": 19088
-    },
-    {
-      "user": "mile",
-      "label": "Dark Milenko",
-      "gateway_port": 19188
-    },
-    {
-      "user": "albert",
-      "label": "Jack Sparrow",
-      "gateway_port": 19288
-    },
-    {
-      "user": "smurf",
-      "label": "Smurf",
-      "gateway_port": 19388
     }
   ],
   "bot_start_grace_seconds": 180,
